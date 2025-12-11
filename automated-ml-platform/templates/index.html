@@ -1,0 +1,82 @@
+<!-- templates/index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Automated Comparative ML/DL Platform</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    .box { border: 1px solid #ddd; padding: 20px; width: 520px; }
+    #status { margin-top: 12px; color: #333; }
+    button { padding: 8px 14px; margin-top: 10px; cursor: pointer; }
+    input[type=file] { display:block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Automated Comparative ML/DL Platform</h2>
+  <div class="box">
+    <label>Select CSV file (must contain 'target' column):</label>
+    <input type="file" id="fileInput" accept=".csv" />
+    <button id="uploadBtn">Upload</button>
+    <hr>
+    <label>Options (optional):</label>
+    <div>
+      <label>Sequence mode for DL: <input type="checkbox" id="sequenceMode" /></label>
+      <label style="margin-left: 12px">Sequence length: <input type="number" id="seqLen" value="10" style="width:70px"/></label>
+    </div>
+    <button id="trainBtn">Train Models</button>
+    <div id="status">Status: Idle</div>
+    <pre id="result" style="white-space:pre-wrap;"></pre>
+  </div>
+
+<script>
+const uploadBtn = document.getElementById('uploadBtn');
+const trainBtn = document.getElementById('trainBtn');
+const status = document.getElementById('status');
+const result = document.getElementById('result');
+let uploadedFilename = null;
+
+uploadBtn.onclick = async () => {
+  const f = document.getElementById('fileInput').files[0];
+  if (!f) { status.textContent = 'Status: Select a file first'; return; }
+  const form = new FormData();
+  form.append('file', f);
+  status.textContent = 'Status: Uploading...';
+  const resp = await fetch('/upload', { method: 'POST', body: form });
+  const data = await resp.json();
+  if (resp.ok) {
+    uploadedFilename = data.filename;
+    status.textContent = 'Status: Upload successful: ' + uploadedFilename;
+  } else {
+    status.textContent = 'Status: Upload failed - ' + (data.error || resp.statusText);
+  }
+};
+
+trainBtn.onclick = async () => {
+  if (!uploadedFilename) { status.textContent = 'Status: Upload a file first'; return; }
+  status.textContent = 'Status: Starting training...';
+  const payload = {
+    filename: uploadedFilename,
+    sequence_mode: document.getElementById('sequenceMode').checked,
+    sequence_length: Number(document.getElementById('seqLen').value || 10),
+    target_col: "target",  // adjust if your csv target column has another name
+    api_key: ""            // if you use API key protection, include here
+  };
+  const resp = await fetch('/train', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    status.textContent = 'Status: Training complete';
+    result.textContent = JSON.stringify(data, null, 2);
+    // optionally show links to static/plots
+  } else {
+    status.textContent = 'Status: Training failed - ' + (data.error || resp.statusText);
+    result.textContent = JSON.stringify(data, null, 2);
+  }
+};
+</script>
+</body>
+</html>
